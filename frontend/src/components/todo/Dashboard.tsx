@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { LogOut, Tags, CheckSquare, Plus, Edit2, Trash2, Calendar, RefreshCw, EyeOff, RotateCcw, Clock } from 'lucide-react';
+import { LogOut, Tags, CheckSquare, Plus, Edit2, Trash2, Calendar, RefreshCw, EyeOff, RotateCcw, Clock, ChevronRight, ChevronDown } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarView } from './CalendarView';
+import { getSortedTagsWithDepth } from '../../utils/tagUtils';
 
 interface Tag {
   id: number;
   name: string;
+  parent_id?: number | null;
 }
 
 interface Task {
@@ -51,6 +53,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const [currentView, setCurrentView] = useState<'list' | 'calendar'>('list');
+  const [collapsedTagIds, setCollapsedTagIds] = useState<Set<number>>(new Set());
+
+  const toggleCollapse = (tagId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) {
+        next.delete(tagId);
+      } else {
+        next.add(tagId);
+      }
+      return next;
+    });
+  };
+
+  const sortedTags = getSortedTagsWithDepth(tags);
+
+  const isTagVisible = (tag: Tag) => {
+    let currentParentId = tag.parent_id;
+    while (currentParentId) {
+      if (collapsedTagIds.has(currentParentId)) {
+        return false;
+      }
+      const parentTag = tags.find((t) => t.id === currentParentId);
+      currentParentId = parentTag ? parentTag.parent_id : null;
+    }
+    return true;
+  };
+
+  const visibleTags = sortedTags.filter(({ tag }) => isTagVisible(tag));
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return 'No due date';
@@ -113,17 +145,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span>All Tasks</span>
               {selectedTagId === null && <span className="tag-pill-indicator" />}
             </button>
-            {tags.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                className={`tag-pill-btn ${selectedTagId === tag.id ? 'active' : ''}`}
-                onClick={() => onSelectTag(tag.id)}
-              >
-                <span>{tag.name}</span>
-                {selectedTagId === tag.id && <span className="tag-pill-indicator" />}
-              </button>
-            ))}
+            {visibleTags.map(({ tag, depth }) => {
+              const hasChildren = tags.some((t) => t.parent_id === tag.id);
+              const isCollapsed = collapsedTagIds.has(tag.id);
+
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`tag-pill-btn ${selectedTagId === tag.id ? 'active' : ''}`}
+                  style={{ paddingLeft: `${16 + depth * 16}px` }}
+                  onClick={() => onSelectTag(tag.id)}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {depth > 0 && <span style={{ color: 'var(--text-muted)' }}>↳</span>}
+                    {hasChildren ? (
+                      <span
+                        onClick={(e) => toggleCollapse(tag.id, e)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          borderRadius: '4px',
+                          color: 'var(--text-secondary)',
+                          transition: 'background-color 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      </span>
+                    ) : (
+                      // Render a blank spacer to keep names aligned
+                      <span style={{ width: '18px' }} />
+                    )}
+                    <span>{tag.name}</span>
+                  </span>
+                  {selectedTagId === tag.id && <span className="tag-pill-indicator" />}
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -10,6 +10,7 @@ import api from './services/api';
 interface Tag {
   id: number;
   name: string;
+  parent_id?: number | null;
 }
 
 interface Task {
@@ -269,6 +270,7 @@ const MainAppContent: React.FC = () => {
         <TaskForm
           task={editingTask}
           availableTags={tags}
+          defaultTagId={selectedTagId}
           onSave={handleSaveTask}
           onCancel={() => {
             setEditingTask(null);

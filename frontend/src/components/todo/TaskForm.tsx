@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { getSortedTagsWithDepth } from '../../utils/tagUtils';
 
 interface Tag {
   id: number;
   name: string;
+  parent_id?: number | null;
 }
 
 interface Task {
@@ -22,6 +24,7 @@ interface Task {
 interface TaskFormProps {
   task: Task | null;
   availableTags: Tag[];
+  defaultTagId?: number | null;
   onSave: (data: { 
     title: string; 
     due_date: string | null; 
@@ -36,6 +39,7 @@ interface TaskFormProps {
 export const TaskForm: React.FC<TaskFormProps> = ({
   task,
   availableTags,
+  defaultTagId,
   onSave,
   onCancel,
 }) => {
@@ -61,9 +65,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       setStartTime('');
       setEndTime('');
       setRecurrence('None');
-      setSelectedTagIds([]);
+      setSelectedTagIds(defaultTagId ? [defaultTagId] : []);
     }
-  }, [task]);
+  }, [task, defaultTagId]);
 
   const handleToggleTag = (tagId: number) => {
     if (selectedTagIds.includes(tagId)) {
@@ -118,10 +122,18 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <input
               type="date"
               className="canvas-date-input"
+              style={{ cursor: 'pointer' }}
               value={dueDate}
               onChange={(e) => {
                 setDueDate(e.target.value);
                 if (error) setError(null);
+              }}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker();
+                } catch (err) {
+                  console.error(err);
+                }
               }}
             />
           </div>
@@ -157,8 +169,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <input
               type="time"
               className="canvas-date-input"
+              style={{ cursor: 'pointer' }}
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
             />
           </div>
 
@@ -167,8 +187,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <input
               type="time"
               className="canvas-date-input"
+              style={{ cursor: 'pointer' }}
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
             />
           </div>
         </div>
@@ -181,7 +209,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             </p>
           ) : (
             <div className="tag-picker-wrap">
-              {availableTags.map((tag) => {
+              {getSortedTagsWithDepth(availableTags).map(({ tag, depth }) => {
                 const isSelected = selectedTagIds.includes(tag.id);
                 return (
                   <button
@@ -189,7 +217,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     type="button"
                     className={`tag-picker-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleToggleTag(tag.id)}
+                    style={{ paddingLeft: depth > 0 ? `${12 + depth * 10}px` : undefined }}
                   >
+                    {depth > 0 && <span style={{ marginRight: '4px', opacity: 0.6 }}>↳</span>}
                     {tag.name}
                   </button>
                 );

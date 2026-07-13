@@ -24,6 +24,7 @@ class TokenData(BaseModel):
 # Tag schemas
 class TagCreate(BaseModel):
     name: str
+    parent_id: Optional[int] = None
 
 class TagUpdate(BaseModel):
     name: str
@@ -32,6 +33,7 @@ class TagResponse(BaseModel):
     id: int
     name: str
     user_id: int
+    parent_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Recurring Template schemas

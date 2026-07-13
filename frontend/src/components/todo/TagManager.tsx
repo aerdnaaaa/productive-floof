@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Trash2, Edit2, Check, X } from 'lucide-react';
 import api from '../../services/api';
+import { getSortedTagsWithDepth } from '../../utils/tagUtils';
 
 interface Tag {
   id: number;
   name: string;
+  parent_id?: number | null;
 }
 
 interface TagManagerProps {
@@ -19,6 +21,7 @@ export const TagManager: React.FC<TagManagerProps> = ({
   onRefresh,
 }) => {
   const [newTagName, setNewTagName] = useState<string>('');
+  const [parentTagId, setParentTagId] = useState<string>('');
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +32,12 @@ export const TagManager: React.FC<TagManagerProps> = ({
 
     try {
       setError(null);
-      await api.post('/tags', { name: newTagName.trim() });
+      await api.post('/tags', { 
+        name: newTagName.trim(),
+        parent_id: parentTagId ? parseInt(parentTagId, 10) : null
+      });
       setNewTagName('');
+      setParentTagId('');
       onRefresh();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to create tag.');
@@ -70,6 +77,8 @@ export const TagManager: React.FC<TagManagerProps> = ({
     }
   };
 
+  const sortedTags = getSortedTagsWithDepth(tags);
+
   return (
     <div className="full-screen-canvas">
       <div className="tag-manager-container">
@@ -82,16 +91,32 @@ export const TagManager: React.FC<TagManagerProps> = ({
 
         {error && <div className="auth-error">{error}</div>}
 
-        <form onSubmit={handleCreateTag} className="tag-manager-create-form">
-          <input
-            type="text"
-            className="tag-manager-input"
-            placeholder="Create a new tag (e.g., Personal, Work)"
-            value={newTagName}
-            onChange={(e) => setNewTagName(e.target.value)}
-            required
-          />
-          <button type="submit" className="tag-manager-btn">Add Tag</button>
+        <form onSubmit={handleCreateTag} className="tag-manager-create-form" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+            <input
+              type="text"
+              className="tag-manager-input"
+              style={{ flex: 1 }}
+              placeholder="Create a new tag (e.g., Personal, Work)"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              required
+            />
+            <select
+              className="canvas-select"
+              style={{ width: '220px', padding: '0.85rem 1.25rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-sans)', fontSize: '1rem', color: 'var(--text-color)', backgroundColor: 'var(--card-bg)' }}
+              value={parentTagId}
+              onChange={(e) => setParentTagId(e.target.value)}
+            >
+              <option value="">No Parent (Root Tag)</option>
+              {sortedTags.map(({ tag, depth }) => (
+                <option key={tag.id} value={tag.id}>
+                  {'\u00A0'.repeat(depth * 3)} {depth > 0 ? '↳ ' : ''}{tag.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="tag-manager-btn">Add Tag</button>
+          </div>
         </form>
 
         <div className="tag-manager-list">
@@ -100,8 +125,8 @@ export const TagManager: React.FC<TagManagerProps> = ({
               No tags found. Add one above.
             </p>
           ) : (
-            tags.map((tag) => (
-              <div key={tag.id} className="tag-manager-item">
+            sortedTags.map(({ tag, depth }) => (
+              <div key={tag.id} className="tag-manager-item" style={{ marginLeft: `${depth * 20}px` }}>
                 {editingTagId === tag.id ? (
                   <input
                     type="text"
@@ -111,7 +136,10 @@ export const TagManager: React.FC<TagManagerProps> = ({
                     autoFocus
                   />
                 ) : (
-                  <span style={{ fontWeight: 500 }}>{tag.name}</span>
+                  <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {depth > 0 && <span style={{ color: 'var(--text-muted)' }}>↳</span>}
+                    {tag.name}
+                  </span>
                 )}
 
                 <div className="tag-manager-item-actions">

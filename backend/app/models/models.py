@@ -50,10 +50,14 @@ class Tag(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    parent_id = Column(Integer, ForeignKey("tags.id", ondelete="CASCADE"), nullable=True)
 
     user = relationship("User", back_populates="tags")
     tasks = relationship("Task", secondary=task_tag_association, back_populates="tags")
     templates = relationship("RecurringTemplate", secondary=template_tag_association, back_populates="tags")
+    
+    children = relationship("Tag", back_populates="parent", cascade="all, delete-orphan")
+    parent = relationship("Tag", back_populates="children", remote_side=[id])
 
 
 class Task(Base):

@@ -15,12 +15,25 @@ def read_tags(current_user: User = Depends(get_current_user), db: Session = Depe
 
 @router.post("", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 def create_tag(tag_in: TagCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Check if a tag with the same name already exists for this user to avoid duplicates
-    existing = db.query(Tag).filter(Tag.user_id == current_user.id, Tag.name == tag_in.name).first()
+    # Check if a tag with the same name and parent_id already exists for this user to avoid duplicates
+    existing = db.query(Tag).filter(
+        Tag.user_id == current_user.id,
+        Tag.name == tag_in.name,
+        Tag.parent_id == tag_in.parent_id
+    ).first()
     if existing:
         return existing
     
-    tag = Tag(name=tag_in.name, user_id=current_user.id)
+    # Verify that the parent tag exists and belongs to the current user
+    if tag_in.parent_id is not None:
+        parent = db.query(Tag).filter(Tag.id == tag_in.parent_id, Tag.user_id == current_user.id).first()
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parent tag not found or does not belong to user"
+            )
+    
+    tag = Tag(name=tag_in.name, user_id=current_user.id, parent_id=tag_in.parent_id)
     db.add(tag)
     db.commit()
     db.refresh(tag)

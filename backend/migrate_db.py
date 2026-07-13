@@ -13,10 +13,19 @@ def migrate():
     db = SessionLocal()
     
     print("Reading existing data via raw SQL...")
+    has_parent_id = False
     try:
         # 1. Read existing data using raw SQL to avoid ORM columns mismatch
         users_raw = db.execute(text("SELECT id, username, hashed_password FROM users")).fetchall()
-        tags_raw = db.execute(text("SELECT id, name, user_id FROM tags")).fetchall()
+        try:
+            tags_raw = db.execute(text("SELECT id, name, user_id, parent_id FROM tags")).fetchall()
+            has_parent_id = True
+            print("Database already has the updated schema (parent_id column present). Skipping migration.")
+            db.close()
+            return
+        except Exception:
+            tags_raw = db.execute(text("SELECT id, name, user_id FROM tags")).fetchall()
+            has_parent_id = False
         templates_raw = db.execute(text("SELECT id, user_id, title, recurrence, next_due_date, last_generated_date, start_time, end_time FROM recurring_templates")).fetchall()
         tasks_raw = db.execute(text("SELECT id, title, status, due_date, template_id, user_id FROM tasks")).fetchall()
         
@@ -36,7 +45,10 @@ def migrate():
 
     # Convert raw rows to memory dictionaries
     users = [{"id": r[0], "username": r[1], "hashed_password": r[2]} for r in users_raw]
-    tags = [{"id": r[0], "name": r[1], "user_id": r[2]} for r in tags_raw]
+    if has_parent_id:
+        tags = [{"id": r[0], "name": r[1], "user_id": r[2], "parent_id": r[3]} for r in tags_raw]
+    else:
+        tags = [{"id": r[0], "name": r[1], "user_id": r[2], "parent_id": None} for r in tags_raw]
     templates = [{
         "id": r[0],
         "user_id": r[1],
@@ -81,7 +93,7 @@ def migrate():
         
         print("Restoring tags...")
         for t in tags:
-            db.add(Tag(id=t["id"], name=t["name"], user_id=t["user_id"]))
+            db.add(Tag(id=t["id"], name=t["name"], user_id=t["user_id"], parent_id=t.get("parent_id")))
         db.flush()
         
         print("Restoring templates...")
