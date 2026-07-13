@@ -13,6 +13,11 @@ class UserResponse(BaseModel):
     username: str
     model_config = ConfigDict(from_attributes=True)
 
+class PasswordResetRequest(BaseModel):
+    username: str
+    new_password: str
+
+
 # Token schemas
 class Token(BaseModel):
     access_token: str

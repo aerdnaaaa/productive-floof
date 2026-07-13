@@ -15,6 +15,8 @@ interface AuthContextType {
   logout: () => void;
   error: string | null;
   setError: (err: string | null) => void;
+  checkUsername: (username: string) => Promise<boolean>;
+  resetPassword: (username: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,8 +96,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   };
 
+  const checkUsername = async (username: string): Promise<boolean> => {
+    setError(null);
+    try {
+      const response = await api.get<{ exists: boolean }>('/auth/check-username', {
+        params: { username }
+      });
+      return response.data.exists;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Username not found.');
+      throw err;
+    }
+  };
+
+  const resetPassword = async (username: string, newPassword: string): Promise<void> => {
+    setError(null);
+    try {
+      await api.post('/auth/reset-password', { username, new_password: newPassword });
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to reset password.');
+      throw err;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, error, setError }}>
+    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, error, setError, checkUsername, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
