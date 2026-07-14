@@ -112,7 +112,7 @@ Backend configuration is managed in `app/core/config.py` and can be customized v
 * `ACCESS_TOKEN_EXPIRE_MINUTES`: `1440` (24 hours)
 
 #### Frontend Configuration
-* The frontend automatically connects to the backend at `http://localhost:8000/api` by default.
+* The frontend automatically connects to the backend at `http://localhost:8000/` by default.
 * You can configure it dynamically by setting the `VITE_API_BASE_URL` environment variable.
 
 ---
@@ -170,7 +170,7 @@ If you want the production frontend to talk to a different backend API server, y
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://your-remote-api-url/api
+        - VITE_API_BASE_URL=http://your-remote-api-url/
 ```
 
 ---
