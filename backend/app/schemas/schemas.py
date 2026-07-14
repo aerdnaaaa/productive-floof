@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
+    is_admin: bool
     model_config = ConfigDict(from_attributes=True)
 
 class PasswordResetRequest(BaseModel):

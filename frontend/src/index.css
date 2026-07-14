@@ -1603,3 +1603,28 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* ADMIN PORTAL SPECIAL ANIMATIONS & STYLES */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-anim {
+  animation: spin 1s linear infinite;
+}
+
+.admin-user-row:hover {
+  background-color: var(--primary-lighter);
+}
+
+.admin-stat-card {
+  transition: var(--transition-smooth);
+}
+
+.admin-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--border-focus) !important;
+}
+
+

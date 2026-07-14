@@ -31,6 +31,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user_in: UserCreate, db: Session = Depends(get_db)):
+    if user_in.username.lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username is reserved"
+        )
     existing_user = db.query(User).filter(User.username == user_in.username).first()
     if existing_user:
         raise HTTPException(
@@ -38,7 +43,7 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="Username already registered"
         )
     hashed_pwd = get_password_hash(user_in.password)
-    user = User(username=user_in.username, hashed_password=hashed_pwd)
+    user = User(username=user_in.username, hashed_password=hashed_pwd, is_admin=False)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -65,6 +70,9 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 @router.get("/check-username")
 def check_username(username: str, db: Session = Depends(get_db)):
+    print(username)
+    if username.lower() == "admin":
+        return {"exists": True}
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(
@@ -76,6 +84,11 @@ def check_username(username: str, db: Session = Depends(get_db)):
 
 @router.post("/reset-password")
 def reset_password(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+    if payload.username.lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reset admin password through public endpoint"
+        )
     user = db.query(User).filter(User.username == payload.username).first()
     if not user:
         raise HTTPException(

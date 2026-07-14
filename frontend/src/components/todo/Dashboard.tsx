@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Tags, CheckSquare, Plus, Edit2, Trash2, Calendar, RefreshCw, EyeOff, RotateCcw, Clock, ChevronRight, ChevronDown } from 'lucide-react';
+import { LogOut, Tags, CheckSquare, Plus, Edit2, Trash2, Calendar, RefreshCw, EyeOff, RotateCcw, Clock, ChevronRight, ChevronDown, Shield } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarView } from './CalendarView';
 import { getSortedTagsWithDepth } from '../../utils/tagUtils';
@@ -36,6 +36,7 @@ interface DashboardProps {
   onSkipTask: (task: Task) => void;
   onRestoreTask: (task: Task) => void;
   onDeleteTask: (id: number) => void;
+  onAdminPortalTrigger: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -50,6 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSkipTask,
   onRestoreTask,
   onDeleteTask,
+  onAdminPortalTrigger,
 }) => {
   const { user, logout } = useAuth();
   const [currentView, setCurrentView] = useState<'list' | 'calendar'>('list');
@@ -116,6 +118,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           >
             <Tags size={22} />
           </button>
+          {user?.is_admin && (
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              title="Admin Portal"
+              onClick={onAdminPortalTrigger}
+              style={{ color: 'var(--primary-color)', opacity: 0.85 }}
+            >
+              <Shield size={22} />
+            </button>
+          )}
         </nav>
         <div className="sidebar-user">
           <div className="user-avatar" title={`Logged in as ${user?.username}`}>

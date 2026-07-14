@@ -5,6 +5,7 @@ import { Dashboard } from './components/todo/Dashboard';
 import { TaskForm } from './components/todo/TaskForm';
 import { ConflictView } from './components/todo/ConflictView';
 import { TagManager } from './components/todo/TagManager';
+import { AdminPortal } from './components/todo/AdminPortal';
 import api from './services/api';
 
 interface Tag {
@@ -29,7 +30,42 @@ interface Task {
 
 const MainAppContent: React.FC = () => {
   const { token, loading } = useAuth();
-  const [view, setView] = useState<'list' | 'create' | 'edit' | 'tags'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'tags' | 'admin'>(() => {
+    const path = window.location.pathname;
+    if (path === '/admin/users') return 'admin';
+    if (path === '/tags') return 'tags';
+    return 'list';
+  });
+
+  const navigateTo = (newView: 'list' | 'create' | 'edit' | 'tags' | 'admin') => {
+    setView(newView);
+    const paths: Record<string, string> = {
+      list: '/',
+      admin: '/admin/users',
+      tags: '/tags',
+      create: '/tasks/create',
+      edit: '/tasks/edit'
+    };
+    const targetPath = paths[newView] || '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/admin/users') {
+        setView('admin');
+      } else if (path === '/tags') {
+        setView('tags');
+      } else {
+        setView('list');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
@@ -145,7 +181,7 @@ const MainAppContent: React.FC = () => {
       if (editingTask === null) {
         // Creation Flow
         await api.post('/tasks', formData);
-        setView('list');
+        navigateTo('list');
         loadData();
       } else {
         // Editing Flow
@@ -175,7 +211,7 @@ const MainAppContent: React.FC = () => {
             tag_ids: formData.tag_ids,
           });
           setEditingTask(null);
-          setView('list');
+          navigateTo('list');
           loadData();
         }
       }
@@ -208,7 +244,7 @@ const MainAppContent: React.FC = () => {
       // Clear states
       setConflictTaskData(null);
       setEditingTask(null);
-      setView('list');
+      navigateTo('list');
       loadData();
     } catch (err: any) {
       setApiError(err.response?.data?.detail || 'Failed to apply recurring task resolution.');
@@ -252,17 +288,18 @@ const MainAppContent: React.FC = () => {
           onSelectTag={setSelectedTagId}
           onCreateTaskTrigger={() => {
             setEditingTask(null);
-            setView('create');
+            navigateTo('create');
           }}
           onEditTaskTrigger={(task) => {
             setEditingTask(task);
-            setView('edit');
+            navigateTo('edit');
           }}
-          onManageTagsTrigger={() => setView('tags')}
+          onManageTagsTrigger={() => navigateTo('tags')}
           onToggleStatus={handleToggleStatus}
           onSkipTask={handleSkipTask}
           onRestoreTask={handleRestoreTask}
           onDeleteTask={handleDeleteTask}
+          onAdminPortalTrigger={() => navigateTo('admin')}
         />
       )}
 
@@ -274,7 +311,7 @@ const MainAppContent: React.FC = () => {
           onSave={handleSaveTask}
           onCancel={() => {
             setEditingTask(null);
-            setView('list');
+            navigateTo('list');
           }}
         />
       )}
@@ -282,8 +319,14 @@ const MainAppContent: React.FC = () => {
       {view === 'tags' && (
         <TagManager
           tags={tags}
-          onBack={() => setView('list')}
+          onBack={() => navigateTo('list')}
           onRefresh={loadData}
+        />
+      )}
+
+      {view === 'admin' && (
+        <AdminPortal
+          onBack={() => navigateTo('list')}
         />
       )}
 

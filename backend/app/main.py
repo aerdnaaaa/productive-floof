@@ -5,13 +5,41 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine, Base
 from app.models import models
-from app.routers import auth, tags, tasks
+from app.routers import auth, tags, tasks, admin
 from app.core.scheduler import recurrence_scheduler_loop
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure is_admin column exists
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if "users" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("users")]
+        if "is_admin" not in columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL"))
+                conn.commit()
+
     # Create tables on startup
     Base.metadata.create_all(bind=engine)
+
+    # Seed admin user if it does not exist
+    from app.core.database import SessionLocal
+    from app.models.models import User
+    from app.core.security import get_password_hash
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            hashed_pwd = get_password_hash("admin123")
+            new_admin = User(username="admin", hashed_password=hashed_pwd, is_admin=True)
+            db.add(new_admin)
+            db.commit()
+            print("Admin user seeded: username 'admin', password 'admin123'")
+    except Exception as e:
+        print(f"Error seeding admin user: {e}")
+    finally:
+        db.close()
     
     # Start background recurrence scheduler
     scheduler_task = asyncio.create_task(recurrence_scheduler_loop())
@@ -49,6 +77,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(tags.router)
 app.include_router(tasks.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():
