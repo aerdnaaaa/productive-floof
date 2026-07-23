@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, CheckSquare, Tags, Trash2, Key, RefreshCw, Check, X, Search, ShieldAlert, LogOut } from 'lucide-react';
+import { Shield, Users, CheckSquare, Tags, Trash2, Key, RefreshCw, Check, X, Search, ShieldAlert, LogOut, Download, Upload } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import api from '../../services/api';
 
@@ -36,6 +36,59 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
       setError(err.response?.data?.detail || 'Failed to fetch users list.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadDatabase = async () => {
+    try {
+      setError(null);
+      setSuccess(null);
+      const response = await api.get('/admin/download-db', {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'productive_floof.db');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      setSuccess('Database downloaded successfully.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to download database.');
+    }
+  };
+
+  const handleRestoreDatabase = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('Are you absolutely sure you want to restore the database? This will completely overwrite all current users, tasks, and tags. This action is irreversible.')) {
+      e.target.value = '';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      
+      await api.post('/admin/restore-db', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setSuccess('Database restored successfully.');
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to restore database.');
+    } finally {
+      setLoading(false);
+      e.target.value = '';
     }
   };
 
@@ -109,6 +162,54 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Hidden File Input for Restore */}
+            <input
+              type="file"
+              id="db-restore-upload"
+              accept=".db,application/x-sqlite3"
+              onChange={handleRestoreDatabase}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={handleDownloadDatabase}
+              title="Download SQLite Database"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                color: 'var(--primary-color)'
+              }}
+            >
+              <Download size={16} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Download DB</span>
+            </button>
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={() => document.getElementById('db-restore-upload')?.click()}
+              title="Restore SQLite Database from file"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                color: 'var(--primary-color)'
+              }}
+            >
+              <Upload size={16} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Restore DB</span>
+            </button>
             <button
               type="button"
               className="task-action-btn"

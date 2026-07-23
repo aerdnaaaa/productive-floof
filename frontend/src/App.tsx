@@ -41,6 +41,9 @@ const MainAppContent: React.FC = () => {
     if (user?.is_admin && newView !== 'admin') {
       return;
     }
+    if ((!user || !user.is_admin) && newView === 'admin') {
+      return;
+    }
     setView(newView);
     const paths: Record<string, string> = {
       list: '/',
@@ -71,13 +74,35 @@ const MainAppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.is_admin && view !== 'admin') {
-      setView('admin');
-      if (window.location.pathname !== '/admin/users') {
-        window.history.pushState({}, '', '/admin/users');
+    if (loading) return;
+
+    const path = window.location.pathname;
+
+    if (token && user) {
+      if (user.is_admin) {
+        if (view !== 'admin') {
+          setView('admin');
+        }
+        if (path !== '/admin/users') {
+          window.history.pushState({}, '', '/admin/users');
+        }
+      } else {
+        if (view === 'admin' || path === '/admin/users') {
+          setView('list');
+          if (path !== '/') {
+            window.history.pushState({}, '', '/');
+          }
+        }
+      }
+    } else if (!token) {
+      if (view === 'admin' || path === '/admin/users') {
+        setView('list');
+        if (path !== '/') {
+          window.history.pushState({}, '', '/');
+        }
       }
     }
-  }, [user, view]);
+  }, [user, token, loading, view]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
