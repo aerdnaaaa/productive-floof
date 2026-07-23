@@ -29,7 +29,7 @@ interface Task {
 }
 
 const MainAppContent: React.FC = () => {
-  const { token, loading } = useAuth();
+  const { user, token, loading } = useAuth();
   const [view, setView] = useState<'list' | 'create' | 'edit' | 'tags' | 'admin'>(() => {
     const path = window.location.pathname;
     if (path === '/admin/users') return 'admin';
@@ -38,6 +38,9 @@ const MainAppContent: React.FC = () => {
   });
 
   const navigateTo = (newView: 'list' | 'create' | 'edit' | 'tags' | 'admin') => {
+    if (user?.is_admin && newView !== 'admin') {
+      return;
+    }
     setView(newView);
     const paths: Record<string, string> = {
       list: '/',
@@ -66,6 +69,16 @@ const MainAppContent: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  useEffect(() => {
+    if (user?.is_admin && view !== 'admin') {
+      setView('admin');
+      if (window.location.pathname !== '/admin/users') {
+        window.history.pushState({}, '', '/admin/users');
+      }
+    }
+  }, [user, view]);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
@@ -325,9 +338,7 @@ const MainAppContent: React.FC = () => {
       )}
 
       {view === 'admin' && (
-        <AdminPortal
-          onBack={() => navigateTo('list')}
-        />
+        <AdminPortal />
       )}
 
       {/* Recurrence Conflict Dialog Overlay */}

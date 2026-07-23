@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Shield, Users, CheckSquare, Tags, Trash2, Key, RefreshCw, Check, X, Search, ShieldAlert } from 'lucide-react';
+import { Shield, Users, CheckSquare, Tags, Trash2, Key, RefreshCw, Check, X, Search, ShieldAlert, LogOut } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import api from '../../services/api';
 
@@ -12,11 +12,10 @@ interface AdminUserStats {
 }
 
 interface AdminPortalProps {
-  onBack: () => void;
 }
 
-export const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
-  const { user: currentUser } = useAuth();
+export const AdminPortal: React.FC<AdminPortalProps> = () => {
+  const { user: currentUser, logout } = useAuth();
   const [users, setUsers] = useState<AdminUserStats[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -104,51 +103,52 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
         {/* Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-color)' }}>Admin Control Portal</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 300 }}>Manage users and monitor system statistics</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button
               type="button"
-              className="tag-manager-back-btn"
-              onClick={onBack}
-              title="Back to tasks"
+              className="task-action-btn"
+              onClick={fetchUsers}
+              title="Refresh users data"
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '12px',
+                padding: '8px',
+                borderRadius: '10px',
                 border: '1px solid var(--border-color)',
                 backgroundColor: 'var(--card-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: 'var(--text-color)',
-                transition: 'var(--transition-smooth)'
+                color: 'var(--text-secondary)'
               }}
             >
-              <ArrowLeft size={18} />
+              <RefreshCw size={16} className={loading ? 'spin-anim' : ''} />
             </button>
-            <div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-color)' }}>Admin Control Portal</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 300 }}>Manage users and monitor system statistics</p>
-            </div>
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={logout}
+              title="Log Out"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--card-bg)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                color: '#ef4444'
+              }}
+            >
+              <LogOut size={16} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Log Out</span>
+            </button>
           </div>
-          <button
-            type="button"
-            className="task-action-btn"
-            onClick={fetchUsers}
-            title="Refresh users data"
-            style={{
-              padding: '8px',
-              borderRadius: '10px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--card-bg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <RefreshCw size={16} className={loading ? 'spin-anim' : ''} />
-          </button>
         </div>
 
         {/* Message Notifications */}

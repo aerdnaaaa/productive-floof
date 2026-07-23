@@ -37,6 +37,11 @@ def read_tasks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators do not have access to tasks."
+        )
     query = db.query(Task).filter(Task.user_id == current_user.id)
     if tag_id is not None:
         query = query.filter(Task.tags.any(id=tag_id))
@@ -50,6 +55,11 @@ def create_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators cannot create tasks."
+        )
     # Fetch tags and ensure they belong to current_user
     db_tags = []
     if task_in.tag_ids:
@@ -103,6 +113,11 @@ def update_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators do not have access to tasks."
+        )
     task = db.query(Task).filter(Task.id == id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
@@ -173,6 +188,11 @@ def resolve_recurrence_conflict(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators do not have access to tasks."
+        )
     task = db.query(Task).filter(Task.id == id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
@@ -247,6 +267,11 @@ def resolve_recurrence_conflict(
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators do not have access to tasks."
+        )
     task = db.query(Task).filter(Task.id == id, Task.user_id == current_user.id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
