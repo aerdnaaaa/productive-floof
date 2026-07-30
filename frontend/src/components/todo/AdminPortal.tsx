@@ -14,6 +14,14 @@ interface AdminUserStats {
 interface AdminPortalProps {
 }
 
+interface DBInspectResult {
+  requires_migration: boolean;
+  changes: string[];
+  users_count: number;
+  tasks_count: number;
+  tags_count: number;
+}
+
 export const AdminPortal: React.FC<AdminPortalProps> = () => {
   const { user: currentUser, logout } = useAuth();
   const [users, setUsers] = useState<AdminUserStats[]>([]);
@@ -21,6 +29,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Inspection & Restore Modal states
+  const [inspectResult, setInspectResult] = useState<DBInspectResult | null>(null);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null);
 
   // Password reset inline state
   const [resettingUserId, setResettingUserId] = useState<number | null>(null);
@@ -59,14 +71,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
     }
   };
 
-  const handleRestoreDatabase = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectDatabaseFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!confirm('Are you absolutely sure you want to restore the database? This will completely overwrite all current users, tasks, and tags. This action is irreversible.')) {
-      e.target.value = '';
-      return;
-    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -76,19 +83,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
       setError(null);
       setSuccess(null);
       
+      const inspectRes = await api.post<DBInspectResult>('/admin/inspect-db', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setInspectResult(inspectRes.data);
+      setPendingRestoreFile(file);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to inspect uploaded database file.');
+    } finally {
+      setLoading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestoreFile) return;
+
+    const formData = new FormData();
+    formData.append('file', pendingRestoreFile);
+
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
       await api.post('/admin/restore-db', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      setSuccess('Database restored successfully.');
+      setSuccess('Database restored and auto-migrated successfully.');
+      setInspectResult(null);
+      setPendingRestoreFile(null);
       fetchUsers();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to restore database.');
     } finally {
       setLoading(false);
-      e.target.value = '';
     }
   };
 
@@ -167,7 +202,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
               type="file"
               id="db-restore-upload"
               accept=".db,application/x-sqlite3"
-              onChange={handleRestoreDatabase}
+              onChange={handleSelectDatabaseFile}
               style={{ display: 'none' }}
             />
             <button
@@ -641,6 +676,197 @@ export const AdminPortal: React.FC<AdminPortalProps> = () => {
         </div>
 
       </div>
+
+      {/* Database Schema Migration Inspection Modal Overlay */}
+      {inspectResult && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.5rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-xl)',
+            width: '100%',
+            maxWidth: '620px',
+            overflow: 'hidden',
+            border: '1px solid var(--border-color)',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.5rem 2rem',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: 'var(--bg-darker)'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-color)' }}>Database Restore & Inspection</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Target File: <strong style={{ color: 'var(--primary-color)' }}>{pendingRestoreFile?.name}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectResult(null);
+                  setPendingRestoreFile(null);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: '6px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content Body */}
+            <div style={{ padding: '1.75rem 2rem', maxHeight: '70vh', overflowY: 'auto' }}>
+              
+              {/* File Statistics Summary Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '12px',
+                marginBottom: '1.5rem',
+                backgroundColor: 'var(--bg-color)',
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Users</span>
+                  <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-color)' }}>{inspectResult.users_count}</p>
+                </div>
+                <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Tasks</span>
+                  <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-color)' }}>{inspectResult.tasks_count}</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Tags</span>
+                  <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-color)' }}>{inspectResult.tags_count}</p>
+                </div>
+              </div>
+
+              {/* Schema Migration Status & Diff Highlights */}
+              {inspectResult.requires_migration ? (
+                <div style={{
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <ShieldAlert size={20} style={{ color: '#d97706' }} />
+                    <h4 style={{ color: '#92400e', fontWeight: 700, fontSize: '0.95rem' }}>
+                      Database Migration Required ({inspectResult.changes.length} {inspectResult.changes.length === 1 ? 'change' : 'changes'})
+                    </h4>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: '#b45309', marginBottom: '12px' }}>
+                    The uploaded database schema differs from the active application models. The following automatic migrations will be executed during restore:
+                  </p>
+                  <ul style={{
+                    margin: 0,
+                    paddingLeft: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    {inspectResult.changes.map((change, idx) => (
+                      <li key={idx} style={{ fontSize: '0.85rem', color: '#78350f', fontFamily: 'monospace', fontWeight: 500 }}>
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div style={{
+                  backgroundColor: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  marginBottom: '1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <Check size={20} style={{ color: '#059669' }} />
+                  <div>
+                    <h4 style={{ color: '#065f46', fontWeight: 700, fontSize: '0.95rem' }}>Schema Fully Up-To-Date</h4>
+                    <p style={{ fontSize: '0.85rem', color: '#047857', marginTop: '2px' }}>
+                      The uploaded database matches current application models. No schema migrations required.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                ⚠️ <strong>Note:</strong> Restoring this database file will completely overwrite all current workspace users, tasks, and tags. This operation cannot be undone.
+              </p>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '1.25rem 2rem',
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px',
+              backgroundColor: 'var(--bg-darker)'
+            }}>
+              <button
+                type="button"
+                className="canvas-btn cancel"
+                onClick={() => {
+                  setInspectResult(null);
+                  setPendingRestoreFile(null);
+                }}
+                style={{ padding: '8px 16px', borderRadius: '8px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="canvas-btn save"
+                onClick={handleConfirmRestore}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--primary-color)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Upload size={16} />
+                <span>Confirm Restore & {inspectResult.requires_migration ? 'Auto-Migrate' : 'Apply'}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

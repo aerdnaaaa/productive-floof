@@ -47,6 +47,7 @@ async def generate_pending_tasks():
                 new_task = Task(
                     title=template.title,
                     status=TaskStatus.PENDING,
+                    priority=getattr(template, "priority", "Medium"),
                     due_date=target_date,
                     start_time=template.start_time,
                     end_time=template.end_time,

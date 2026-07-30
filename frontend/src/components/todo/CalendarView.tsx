@@ -12,11 +12,13 @@ interface Task {
   due_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  priority?: 'Low' | 'Medium' | 'High';
   status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
   template_id?: number | null;
   tags?: Tag[];
   template?: {
     recurrence: string;
+    priority?: 'Low' | 'Medium' | 'High';
   } | null;
 }
 
@@ -122,6 +124,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return tasks.filter((task) => task.due_date === dateStr);
   };
 
+  const getPriorityColor = (p?: 'Low' | 'Medium' | 'High') => {
+    if (p === 'High') return '#dc2626';
+    if (p === 'Low') return '#2563eb';
+    return '#d97706';
+  };
+
   // Renders a single task compact card for Month/Week grids
   const renderTaskCompact = (task: Task) => {
     const isCompleted = task.status === 'COMPLETED';
@@ -131,7 +139,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div 
         key={task.id} 
         className={`cal-task-compact ${isCompleted ? 'completed' : ''} ${isSkipped ? 'skipped' : ''}`}
-        title={`${task.title} (${task.status})${task.start_time ? ` @ ${task.start_time}${task.end_time ? ` - ${task.end_time}` : ''}` : ''}`}
+        title={`[${task.priority || 'Medium'} Priority] ${task.title} (${task.status})${task.start_time ? ` @ ${task.start_time}${task.end_time ? ` - ${task.end_time}` : ''}` : ''}`}
       >
         <span 
           className="cal-task-checkbox" 
@@ -146,6 +154,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             readOnly 
           />
         </span>
+        <span
+          style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: getPriorityColor(task.priority),
+            display: 'inline-block',
+            marginRight: '4px',
+            flexShrink: 0
+          }}
+        />
         <span className="cal-task-title" onClick={() => onEditTaskTrigger(task)}>
           {task.title} {task.start_time ? `(${task.start_time})` : ''}
         </span>

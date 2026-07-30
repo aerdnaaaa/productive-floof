@@ -109,6 +109,62 @@ def download_database(current_admin: User = Depends(get_current_admin)):
     )
 
 
+from app.schemas.schemas import DBInspectResponse
+from app.core.schema_migrator import inspect_database_schema, migrate_database_schema
+
+
+@router.post("/inspect-db", response_model=DBInspectResponse)
+def inspect_database_file(file: UploadFile = File(...), current_admin: User = Depends(get_current_admin)):
+    db_url = settings.DATABASE_URL
+    if not db_url.startswith("sqlite"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only SQLite database inspection is supported."
+        )
+    
+    # Save uploaded file to a temporary location for inspection
+    temp_path = os.path.join(os.path.dirname(db_url.replace("sqlite:///", "")), "inspect_temp.db")
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Check SQLite header
+        with open(temp_path, "rb") as f:
+            header = f.read(16)
+        if header != b"SQLite format 3\x00":
+            raise Exception("Uploaded file is not a valid SQLite database (invalid header).")
+
+        # Validate SQLite integrity
+        conn = None
+        try:
+            conn = sqlite3.connect(temp_path)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check;")
+            check_result = cursor.fetchone()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users';")
+            has_users_table = cursor.fetchone()
+        finally:
+            if conn:
+                conn.close()
+
+        if not check_result or check_result[0] != "ok" or not has_users_table:
+            raise Exception("Uploaded file is not a valid productive-floof SQLite database.")
+
+        inspection_report = inspect_database_schema(temp_path)
+        return inspection_report
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to inspect database: {str(e)}"
+        )
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
 @router.post("/restore-db")
 def restore_database(file: UploadFile = File(...), current_admin: User = Depends(get_current_admin)):
     db_url = settings.DATABASE_URL
@@ -155,7 +211,10 @@ def restore_database(file: UploadFile = File(...), current_admin: User = Depends
         # 2. Overwrite the file
         shutil.move(temp_path, db_path)
         
-        return {"message": "Database restored successfully."}
+        # 3. Dynamically migrate database schema to match application models
+        migrate_database_schema(engine)
+
+        return {"message": "Database restored and migrated successfully."}
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -163,3 +222,4 @@ def restore_database(file: UploadFile = File(...), current_admin: User = Depends
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to restore database: {str(e)}"
         )
+

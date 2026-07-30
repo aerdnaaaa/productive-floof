@@ -1,7 +1,7 @@
 from datetime import date
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
-from app.models.models import TaskStatus
+from app.models.models import TaskStatus, TaskPriority
 
 # User schemas
 class UserCreate(BaseModel):
@@ -46,6 +46,7 @@ class TagResponse(BaseModel):
 class RecurringTemplateResponse(BaseModel):
     id: int
     title: str
+    priority: TaskPriority = TaskPriority.Medium
     recurrence: str
     next_due_date: date
     last_generated_date: Optional[date] = None
@@ -60,6 +61,7 @@ class TaskCreate(BaseModel):
     due_date: Optional[date] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    priority: Optional[TaskPriority] = TaskPriority.Medium
     status: Optional[TaskStatus] = TaskStatus.PENDING
     recurrence: Optional[str] = "None"  # 'Daily', 'Weekly', 'Monthly', 'None'
     tag_ids: Optional[List[int]] = []
@@ -67,6 +69,7 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     status: Optional[TaskStatus] = None
+    priority: Optional[TaskPriority] = None
     due_date: Optional[date] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
@@ -77,6 +80,7 @@ class TaskResponse(BaseModel):
     id: int
     title: str
     status: TaskStatus
+    priority: TaskPriority = TaskPriority.Medium
     due_date: Optional[date] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
@@ -91,8 +95,19 @@ class RecurrenceResolution(BaseModel):
     choice: str  # "instance" or "future"
     # Fields that should be updated
     title: str
+    priority: Optional[TaskPriority] = TaskPriority.Medium
     due_date: Optional[date] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     tag_ids: List[int]
     recurrence: str
+
+
+# Database Schema Inspection schemas
+class DBInspectResponse(BaseModel):
+    requires_migration: bool
+    changes: List[str]
+    users_count: int
+    tasks_count: int
+    tags_count: int
+

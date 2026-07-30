@@ -2,11 +2,11 @@ import calendar
 from datetime import date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import nullslast
+from sqlalchemy import case, nullslast
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.routers.auth import get_current_user
-from app.models.models import User, Task, Tag, RecurringTemplate, TaskStatus
+from app.models.models import User, Task, Tag, RecurringTemplate, TaskStatus, TaskPriority
 from app.schemas.schemas import TaskCreate, TaskUpdate, TaskResponse, RecurrenceResolution
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -45,8 +45,16 @@ def read_tasks(
     query = db.query(Task).filter(Task.user_id == current_user.id)
     if tag_id is not None:
         query = query.filter(Task.tags.any(id=tag_id))
-    # Order by due_date ascending (NULL values sorted last)
-    return query.order_by(nullslast(Task.due_date.asc()), Task.id.asc()).all()
+
+    priority_order = case(
+        (Task.priority == TaskPriority.High, 1),
+        (Task.priority == TaskPriority.Medium, 2),
+        (Task.priority == TaskPriority.Low, 3),
+        else_=2
+    )
+
+    # Order by due_date ascending (NULL values sorted last), then by priority (High -> Medium -> Low)
+    return query.order_by(nullslast(Task.due_date.asc()), priority_order.asc(), Task.id.asc()).all()
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -62,6 +70,8 @@ def create_task(
         )
     # Fetch tags and ensure they belong to current_user
     db_tags = []
+    # Fetch tags and ensure they belong to current_user
+    db_tags = []
     if task_in.tag_ids:
         db_tags = db.query(Tag).filter(Tag.id.in_(task_in.tag_ids), Tag.user_id == current_user.id).all()
 
@@ -69,6 +79,7 @@ def create_task(
     task = Task(
         title=task_in.title,
         status=task_in.status or TaskStatus.PENDING,
+        priority=task_in.priority or "Medium",
         due_date=task_in.due_date,
         start_time=task_in.start_time,
         end_time=task_in.end_time,
@@ -88,6 +99,7 @@ def create_task(
         template = RecurringTemplate(
             user_id=current_user.id,
             title=task_in.title,
+            priority=task_in.priority or "Medium",
             recurrence=task_in.recurrence,
             next_due_date=next_due,
             last_generated_date=task_in.due_date,
@@ -140,6 +152,7 @@ def update_task(
     # Check if they are actually modifying details
     modifying_details = (
         ("title" in update_data and update_data["title"] != task.title) or
+        ("priority" in update_data and update_data["priority"] != task.priority) or
         ("due_date" in update_data and update_data["due_date"] != task.due_date) or
         ("start_time" in update_data and update_data["start_time"] != task.start_time) or
         ("end_time" in update_data and update_data["end_time"] != task.end_time) or
@@ -166,6 +179,8 @@ def update_task(
         task.title = task_in.title
     if "status" in update_data:
         task.status = task_in.status
+    if "priority" in update_data and task_in.priority is not None:
+        task.priority = task_in.priority
     if "due_date" in update_data:
         task.due_date = task_in.due_date
     if "start_time" in update_data:
@@ -208,6 +223,8 @@ def resolve_recurrence_conflict(
         # Orphan this row by setting template_id = NULL
         task.template_id = None
         task.title = resolution.title
+        if resolution.priority:
+            task.priority = resolution.priority
         task.due_date = resolution.due_date
         task.start_time = resolution.start_time
         task.end_time = resolution.end_time
@@ -223,6 +240,8 @@ def resolve_recurrence_conflict(
         template = db.query(RecurringTemplate).filter(RecurringTemplate.id == task.template_id).first()
         if template:
             template.title = resolution.title
+            if resolution.priority:
+                template.priority = resolution.priority
             template.tags = db_tags
             template.start_time = resolution.start_time
             template.end_time = resolution.end_time
@@ -246,12 +265,16 @@ def resolve_recurrence_conflict(
 
         for pt in pending_tasks:
             pt.title = resolution.title
+            if resolution.priority:
+                pt.priority = resolution.priority
             pt.tags = db_tags
             pt.start_time = resolution.start_time
             pt.end_time = resolution.end_time
 
         # 3. Explicitly update current task (even if not PENDING)
         task.title = resolution.title
+        if resolution.priority:
+            task.priority = resolution.priority
         task.due_date = resolution.due_date
         task.start_time = resolution.start_time
         task.end_time = resolution.end_time

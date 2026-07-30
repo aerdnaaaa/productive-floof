@@ -25,6 +25,12 @@ class TaskStatus(str, enum.Enum):
     SKIPPED = "SKIPPED"
 
 
+class TaskPriority(str, enum.Enum):
+    Low = "Low"
+    Medium = "Medium"
+    High = "High"
+
+
 class RecurrenceType(str, enum.Enum):
     Daily = "Daily"
     Weekly = "Weekly"
@@ -67,6 +73,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     status = Column(SQLEnum(TaskStatus), default=TaskStatus.PENDING, nullable=False)
+    priority = Column(SQLEnum(TaskPriority), default=TaskPriority.Medium, nullable=False)
     due_date = Column(Date, nullable=True)
     start_time = Column(String, nullable=True)
     end_time = Column(String, nullable=True)
@@ -88,6 +95,7 @@ class RecurringTemplate(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
+    priority = Column(SQLEnum(TaskPriority), default=TaskPriority.Medium, nullable=False)
     recurrence = Column(String, default="None", nullable=False)  # 'Daily', 'Weekly', 'Monthly', 'None'
     next_due_date = Column(Date, nullable=False)
     last_generated_date = Column(Date, nullable=True)

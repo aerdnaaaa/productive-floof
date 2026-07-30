@@ -16,11 +16,13 @@ interface Task {
   due_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  priority?: 'Low' | 'Medium' | 'High';
   status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
   template_id?: number | null;
   tags?: Tag[];
   template?: {
     recurrence: string;
+    priority?: 'Low' | 'Medium' | 'High';
   } | null;
 }
 
@@ -95,6 +97,58 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return dateStr;
     }
   };
+
+  const renderPriorityBadge = (p?: 'Low' | 'Medium' | 'High') => {
+    const priorityVal = p || 'Medium';
+    let color = '#d97706';
+    let bg = '#fffbeb';
+    let border = '#fde68a';
+    if (priorityVal === 'High') {
+      color = '#dc2626';
+      bg = '#fef2f2';
+      border = '#fecaca';
+    } else if (priorityVal === 'Low') {
+      color = '#2563eb';
+      bg = '#eff6ff';
+      border = '#bfdbfe';
+    }
+    return (
+      <span
+        style={{
+          fontSize: '0.7rem',
+          fontWeight: 700,
+          color,
+          backgroundColor: bg,
+          border: `1px solid ${border}`,
+          padding: '1px 7px',
+          borderRadius: '10px',
+          letterSpacing: '0.02em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {priorityVal}
+      </span>
+    );
+  };
+
+  const priorityWeight: Record<string, number> = { High: 1, Medium: 2, Low: 3 };
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    // 1. Sort by due_date ascending (tasks with due_date first, null dates sorted last)
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    if (a.due_date && b.due_date && a.due_date !== b.due_date) {
+      return a.due_date.localeCompare(b.due_date);
+    }
+    // 2. Sort by Priority (High -> Medium -> Low)
+    const weightA = priorityWeight[a.priority || 'Medium'] || 2;
+    const weightB = priorityWeight[b.priority || 'Medium'] || 2;
+    if (weightA !== weightB) {
+      return weightA - weightB;
+    }
+    // 3. Fallback by ID
+    return a.id - b.id;
+  });
 
   return (
     <div className="app-container">
@@ -252,7 +306,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {currentView === 'list' ? (
           <>
             {/* Task Cards Stack */}
-            {tasks.length === 0 ? (
+            {sortedTasks.length === 0 ? (
               <div className="empty-state">
                 <CheckSquare size={48} strokeWidth={1} />
                 <h4 className="empty-state-title">No tasks found</h4>
@@ -264,10 +318,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             ) : (
               <div className="tasks-stack">
-                {tasks.map((task) => {
+                {sortedTasks.map((task) => {
                   const isCompleted = task.status === 'COMPLETED';
                   const isSkipped = task.status === 'SKIPPED';
-                  
+
                   return (
                     <div key={task.id} className={`task-card ${isCompleted ? 'completed' : ''} ${isSkipped ? 'skipped' : ''}`}>
                       <div className="task-card-left" onClick={() => onToggleStatus(task)}>
@@ -279,9 +333,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           />
                           <span className="checkmark" />
                         </label>
-                        
+
                         <div className="task-content-wrapper">
-                          <span className="task-card-title">{task.title}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {renderPriorityBadge(task.priority)}
+                            <span className="task-card-title">{task.title}</span>
+                          </div>
                           <div className="task-meta-row">
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Calendar size={12} />
@@ -327,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           >
                             <Edit2 size={15} />
                           </button>
-                          
+
                           {isSkipped ? (
                             <button
                               type="button"

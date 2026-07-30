@@ -20,11 +20,13 @@ interface Task {
   due_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  priority?: 'Low' | 'Medium' | 'High';
   status: 'PENDING' | 'COMPLETED' | 'SKIPPED';
   template_id?: number | null;
   tags?: Tag[];
   template?: {
     recurrence: string;
+    priority?: 'Low' | 'Medium' | 'High';
   } | null;
 }
 
@@ -112,6 +114,7 @@ const MainAppContent: React.FC = () => {
   // Recurrence conflict state
   const [conflictTaskData, setConflictTaskData] = useState<{
     title: string;
+    priority: 'Low' | 'Medium' | 'High';
     due_date: string | null;
     start_time: string | null;
     end_time: string | null;
@@ -208,6 +211,7 @@ const MainAppContent: React.FC = () => {
   // Save flow: handles both creation and editing, intercepting recurrence conflicts
   const handleSaveTask = async (formData: {
     title: string;
+    priority: 'Low' | 'Medium' | 'High';
     due_date: string | null;
     start_time: string | null;
     end_time: string | null;
@@ -230,6 +234,7 @@ const MainAppContent: React.FC = () => {
         const isTagsModified = JSON.stringify(currentTagIds.sort()) !== JSON.stringify(formData.tag_ids.sort());
         const isDetailsModified = 
           editingTask.title !== formData.title ||
+          editingTask.priority !== formData.priority ||
           editingTask.due_date !== formData.due_date ||
           editingTask.start_time !== formData.start_time ||
           editingTask.end_time !== formData.end_time ||
@@ -243,6 +248,7 @@ const MainAppContent: React.FC = () => {
           // Standard Update
           await api.put(`/tasks/${editingTask.id}`, {
             title: formData.title,
+            priority: formData.priority,
             due_date: formData.due_date,
             start_time: formData.start_time,
             end_time: formData.end_time,
@@ -272,6 +278,7 @@ const MainAppContent: React.FC = () => {
       await api.put(`/tasks/${editingTask.id}/recurrence`, {
         choice,
         title: conflictTaskData.title,
+        priority: conflictTaskData.priority,
         due_date: conflictTaskData.due_date,
         start_time: conflictTaskData.start_time,
         end_time: conflictTaskData.end_time,

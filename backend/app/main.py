@@ -8,19 +8,14 @@ from app.models import models
 from app.routers import auth, tags, tasks, admin
 from app.core.scheduler import recurrence_scheduler_loop
 
+from app.core.schema_migrator import migrate_database_schema
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure is_admin column exists
-    from sqlalchemy import inspect, text
-    inspector = inspect(engine)
-    if "users" in inspector.get_table_names():
-        columns = [c["name"] for c in inspector.get_columns("users")]
-        if "is_admin" not in columns:
-            with engine.connect() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL"))
-                conn.commit()
+    # Dynamically migrate database schema to match models
+    migrate_database_schema(engine)
 
-    # Create tables on startup
+    # Create any missing tables on startup
     Base.metadata.create_all(bind=engine)
 
     # Seed admin user if it does not exist

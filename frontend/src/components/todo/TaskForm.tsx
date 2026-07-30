@@ -13,11 +13,13 @@ interface Task {
   due_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  priority?: 'Low' | 'Medium' | 'High';
   status: string;
   template_id?: number | null;
   tags?: Tag[];
   template?: {
     recurrence: string;
+    priority?: 'Low' | 'Medium' | 'High';
   } | null;
 }
 
@@ -27,6 +29,7 @@ interface TaskFormProps {
   defaultTagId?: number | null;
   onSave: (data: { 
     title: string; 
+    priority: 'Low' | 'Medium' | 'High';
     due_date: string | null; 
     start_time: string | null; 
     end_time: string | null; 
@@ -44,6 +47,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onCancel,
 }) => {
   const [title, setTitle] = useState<string>('');
+  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [dueDate, setDueDate] = useState<string>('');
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
@@ -54,6 +58,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   useEffect(() => {
     if (task) {
       setTitle(task.title);
+      setPriority(task.priority || task.template?.priority || 'Medium');
       setDueDate(task.due_date || '');
       setStartTime(task.start_time || '');
       setEndTime(task.end_time || '');
@@ -61,6 +66,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       setSelectedTagIds(task.tags?.map((t) => t.id) || []);
     } else {
       setTitle('');
+      setPriority('Medium');
       setDueDate('');
       setStartTime('');
       setEndTime('');
@@ -89,6 +95,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     }
     onSave({
       title: title.trim(),
+      priority,
       due_date: dueDate || null,
       start_time: startTime || null,
       end_time: endTime || null,
@@ -114,6 +121,50 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             required
           />
           {error && <p className="auth-error" style={{ marginTop: '0.5rem' }}>{error}</p>}
+        </div>
+
+        {/* Priority Selector Row */}
+        <div className="canvas-section" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+          <span className="canvas-section-label">Priority Level</span>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {(['Low', 'Medium', 'High'] as const).map((p) => {
+              const isSelected = priority === p;
+              let activeColor = 'var(--primary-color)';
+              let activeBg = 'var(--primary-light)';
+              if (p === 'High') {
+                activeColor = '#dc2626';
+                activeBg = '#fef2f2';
+              } else if (p === 'Medium') {
+                activeColor = '#d97706';
+                activeBg = '#fffbeb';
+              } else if (p === 'Low') {
+                activeColor = '#2563eb';
+                activeBg = '#eff6ff';
+              }
+
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPriority(p)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: isSelected ? `2px solid ${activeColor}` : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? activeBg : 'var(--card-bg)',
+                    color: isSelected ? activeColor : 'var(--text-secondary)',
+                    fontWeight: isSelected ? 600 : 400,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {p} Priority
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="canvas-input-row">
